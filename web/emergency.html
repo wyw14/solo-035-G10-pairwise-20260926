@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OnAirMux 应急静态片</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+.panel{background:#fff;border:1px solid #d5ddda;border-radius:6px;padding:18px;margin-bottom:18px}
+.panel h2{font-size:16px;margin:0 0 14px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+label{font-size:13px;color:#52605a;display:flex;flex-direction:column;gap:5px}
+input,select{padding:8px 10px;border:1px solid #b9c4c0;border-radius:4px;font-size:14px;min-width:140px}
+button{padding:9px 16px;border:0;border-radius:4px;background:#16835f;color:#fff;font-size:14px;cursor:pointer}
+button.danger{background:#c3472e}
+button.ghost{background:#5b6b65}
+button:disabled{opacity:.45;cursor:not-allowed}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #e3e9e7;vertical-align:top}
+th{color:#66736e;font-weight:600}
+.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700}
+.badge.ok{background:#dff2ea;color:#0f6b4d}
+.badge.bad{background:#fbe3de;color:#a6331c}
+.badge.warn{background:#fdf0d7;color:#8a5b12}
+.muted{color:#66736e;font-size:13px}
+.token{font-family:ui-monospace,Menlo,Consolas,monospace;background:#f1f5f3;padding:2px 6px;border-radius:4px}
+#flash{font-size:13px;margin:8px 0;min-height:18px}
+#flash.err{color:#a6331c}#flash.ok{color:#0f6b4d}
+</style>
+</head>
+<body>
+<header><strong>OnAirMux</strong><nav><a href="/operations.html">节目</a><a href="/equipment.html">设备</a><a href="/interlocks.html">联锁</a><a href="/incidents.html">事件</a><a href="/emergency.html">应急静态片</a></nav></header>
+<main>
+  <section>
+    <p class="eyebrow">EMERGENCY SLATE PATH</p>
+    <h1>紧急静态片通路</h1>
+    <p class="muted">外部信号失锁且编码与音画备路均无法提供有效节目时：给出适用候选 → 导播明确确认后切入 → 撤下 → 选择已准备好的接管输出完成交接。切入、撤下、交接均留存播出证据。</p>
+    <div id="flash"></div>
+  </section>
+
+  <div class="panel">
+    <h2>目标节目</h2>
+    <div class="row">
+      <label>事件
+        <select id="eventSelect"><option>加载中…</option></select>
+      </label>
+      <span id="chainBadge"></span>
+      <span id="chainReasons" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>应急操作</h2>
+    <div id="actions"><p class="muted">正在加载…</p></div>
+  </div>
+
+  <div class="panel">
+    <h2>适用候选素材（按当前时段）</h2>
+    <table>
+      <thead><tr><th>素材</th><th>内容地址</th><th>适用时段</th><th>责任人</th><th></th></tr></thead>
+      <tbody id="candidateRows"></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <h2>播出证据（切入 / 撤下 / 交接）</h2>
+    <table>
+      <thead><tr><th>时间</th><th>类型</th><th>素材</th><th>说明</th><th>凭据/接管</th></tr></thead>
+      <tbody id="evidenceRows"></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <h2>录入受控静态片素材</h2>
+    <div class="row">
+      <label>名称<input id="assetName" placeholder="如：午间维护通告"></label>
+      <label>内容地址<input id="assetURI" placeholder="slate://…"></label>
+      <label>责任人<input id="assetControl" placeholder="值班导播"></label>
+      <label>适用周几
+        <select id="assetWeekday">
+          <option value="1">周一</option><option value="2">周二</option><option value="3">周三</option>
+          <option value="4">周四</option><option value="5">周五</option><option value="6">周六</option>
+          <option value="0">周日</option><option value="-1">每天</option>
+        </select>
+      </label>
+      <label>起<input id="assetStart" type="time" value="00:00"></label>
+      <label>止<input id="assetEnd" type="time" value="23:59"></label>
+      <label>用途说明<input id="assetReason" placeholder="何时使用"></label>
+      <button id="registerBtn">录入素材</button>
+    </div>
+    <p class="muted" style="margin-top:10px">已登记素材：<span id="assetCount">0</span> 张</p>
+  </div>
+</main>
+<script src="/emergency.js"></script>
+</body>
+</html>

@@ -6,19 +6,28 @@ import (
 	"time"
 
 	"github.com/wyw14/solo-035/internal/backup"
+	"github.com/wyw14/solo-035/internal/emergency"
 	"github.com/wyw14/solo-035/internal/model"
 )
 
 type ControlRequest struct {
-	Action      string `json:"action"`
-	EventID     string `json:"event_id"`
-	SourceID    string `json:"source_id"`
-	EncoderID   string `json:"encoder_id"`
-	Healthy     bool   `json:"healthy"`
-	Bitrate     int    `json:"bitrate"`
-	Count       int64  `json:"count"`
-	Message     string `json:"message"`
-	DelayMillis int64  `json:"delay_millis"`
+	Action      string                 `json:"action"`
+	EventID     string                 `json:"event_id"`
+	SourceID    string                 `json:"source_id"`
+	EncoderID   string                 `json:"encoder_id"`
+	Healthy     bool                   `json:"healthy"`
+	Bitrate     int                    `json:"bitrate"`
+	Count       int64                  `json:"count"`
+	Message     string                 `json:"message"`
+	DelayMillis int64                  `json:"delay_millis"`
+	SlateID     string                 `json:"slate_id"`
+	SlateName   string                 `json:"slate_name"`
+	ContentURI  string                 `json:"content_uri"`
+	Control     string                 `json:"control"`
+	Windows     []emergency.TimeWindow `json:"windows"`
+	Token       model.CommandID        `json:"token"`
+	TakeoverID  string                 `json:"takeover_id"`
+	Label       string                 `json:"label"`
 }
 
 type ControlResult struct {
@@ -140,6 +149,36 @@ func (runtime *Runtime) ExecuteControl(ctx context.Context, request ControlReque
 			return model.NewSourceID()
 		})
 		result.Value = report
+		return result, err
+	case "register-slate":
+		asset, err := coordinator.RegisterEmergencyAsset(emergency.RegisterInput{
+			Name:              request.SlateName,
+			ContentURI:        request.ContentURI,
+			Reason:            request.Message,
+			ApplicableWindows: request.Windows,
+			Control:           request.Control,
+		})
+		result.Value = asset
+		return result, err
+	case "propose-slate":
+		proposal, err := coordinator.ProposeSlate(eventID, model.SlateID(request.SlateID), request.Message)
+		result.Value = proposal
+		return result, err
+	case "confirm-slate":
+		evidence, err := coordinator.ConfirmSlate(eventID, request.Token)
+		result.Value = evidence
+		return result, err
+	case "withdraw-slate":
+		evidence, err := coordinator.WithdrawSlate(eventID, request.Message)
+		result.Value = evidence
+		return result, err
+	case "prepare-takeover":
+		takeover, err := coordinator.PrepareTakeover(eventID, request.Label)
+		result.Value = takeover
+		return result, err
+	case "confirm-handover":
+		evidence, err := coordinator.ConfirmHandover(eventID, request.TakeoverID)
+		result.Value = evidence
 		return result, err
 	default:
 		return result, fmt.Errorf("unsupported control action %q", request.Action)

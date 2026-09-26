@@ -12,6 +12,7 @@ type RevisionID string
 type CommandID string
 type LeaseID string
 type SourceID string
+type SlateID string
 
 func NewEventID() EventID {
 	return EventID(uuid.NewString())
@@ -31,6 +32,10 @@ func NewLeaseID() LeaseID {
 
 func NewSourceID() SourceID {
 	return SourceID(uuid.NewString())
+}
+
+func NewSlateID() SlateID {
+	return SlateID(uuid.NewString())
 }
 
 func ValidateIdentity(value string, kind string) error {

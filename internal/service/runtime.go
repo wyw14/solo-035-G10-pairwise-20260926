@@ -8,9 +8,11 @@ import (
 	"github.com/wyw14/solo-035/internal/audio"
 	"github.com/wyw14/solo-035/internal/backup"
 	"github.com/wyw14/solo-035/internal/caption"
+	"github.com/wyw14/solo-035/internal/emergency"
 	"github.com/wyw14/solo-035/internal/encoder"
 	"github.com/wyw14/solo-035/internal/event"
 	"github.com/wyw14/solo-035/internal/journal"
+	"github.com/wyw14/solo-035/internal/model"
 	"github.com/wyw14/solo-035/internal/mux"
 	"github.com/wyw14/solo-035/internal/playout"
 	"github.com/wyw14/solo-035/internal/quality"
@@ -49,6 +51,8 @@ type Runtime struct {
 	PlayoutRecovery *playout.Recovery
 	BackupState     *backup.State
 	Backup          *backup.Coordinator
+	EmergencyState  *emergency.State
+	Emergency       *emergency.Coordinator
 }
 
 func NewRuntime(dataDirectory string, clock func() time.Time) (*Runtime, error) {
@@ -100,5 +104,36 @@ func NewRuntime(dataDirectory string, clock func() time.Time) (*Runtime, error) 
 	if runtime.Backup == nil {
 		return nil, fmt.Errorf("backup coordinator was not constructed")
 	}
+	runtime.EmergencyState = emergency.NewState()
+	runtime.Emergency = emergency.NewCoordinator(runtime.EmergencyState, runtime.Journal, clock, runtime.takeoverReadiness, runtime.applySlateHandover)
+	if runtime.Emergency == nil {
+		return nil, fmt.Errorf("emergency slate coordinator was not constructed")
+	}
 	return runtime, nil
+}
+
+// takeoverReadiness 向应急通路提供"接管输出是否已准备好"的判定：
+// 事件在播出链路上必须存在一路有效的已恢复输出（在播、来源与版本齐全）。
+func (runtime *Runtime) takeoverReadiness(eventID model.EventID) (emergency.TakeoverOutput, bool) {
+	output, ok := runtime.Playout.Output(eventID)
+	if !ok || !output.Source.Valid() || !output.Revision.Valid() {
+		return emergency.TakeoverOutput{}, false
+	}
+	return emergency.TakeoverOutput{Source: output.Source, Revision: output.Revision, Fence: output.Fence}, true
+}
+
+// applySlateHandover 是应急结束时的实际交接动作：把已准备好的接管输出重新发布
+// 到播出链路（恢复在播），并落一条"节目恢复"日志；成功后调用方再写交接证据。
+func (runtime *Runtime) applySlateHandover(event model.LiveEvent, takeover emergency.Takeover) error {
+	if err := runtime.PlayoutState.Publish(event.ID, takeover.Revision, takeover.Fence, runtime.Clock()); err != nil {
+		return err
+	}
+	if _, err := runtime.Journal.Persist(event.ID, "program-resumed", takeover.Revision, takeover.Fence, map[string]any{
+		"takeover_id": takeover.ID,
+		"source":      takeover.Source,
+		"label":       takeover.Label,
+	}); err != nil {
+		return err
+	}
+	return nil
 }
