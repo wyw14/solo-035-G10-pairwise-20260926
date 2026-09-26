@@ -8,15 +8,18 @@ import (
 	"github.com/wyw14/solo-035/internal/journal"
 	"github.com/wyw14/solo-035/internal/model"
 	"github.com/wyw14/solo-035/internal/quality"
+	"github.com/wyw14/solo-035/internal/slate"
 	"github.com/wyw14/solo-035/internal/syncer"
 )
 
 type ControlCheckpoint struct {
-	Events  []event.RecoveryRecord   `json:"events"`
-	Sync    []syncer.Recovery        `json:"sync"`
-	Backup  []backup.RecoveryRecord  `json:"backup"`
-	Quality []quality.RecoveryRecord `json:"quality"`
-	Journal []journal.Record         `json:"journal"`
+	Events         []event.RecoveryRecord   `json:"events"`
+	Sync           []syncer.Recovery        `json:"sync"`
+	Backup         []backup.RecoveryRecord  `json:"backup"`
+	Quality        []quality.RecoveryRecord `json:"quality"`
+	Slate          []slate.RecoveryRecord   `json:"slate"`
+	SlateMaterials []slate.Material         `json:"slate_materials"`
+	Journal        []journal.Record         `json:"journal"`
 }
 
 func (runtime *Runtime) ExportCheckpoint() ControlCheckpoint {
@@ -26,11 +29,13 @@ func (runtime *Runtime) ExportCheckpoint() ControlCheckpoint {
 		ids = append(ids, record.Event.ID)
 	}
 	return ControlCheckpoint{
-		Events:  events,
-		Sync:    runtime.SyncState.ExportRecovery(),
-		Backup:  runtime.BackupState.ExportRecovery(),
-		Quality: runtime.Evidence.Export(ids),
-		Journal: runtime.Journal.Records(),
+		Events:         events,
+		Sync:           runtime.SyncState.ExportRecovery(),
+		Backup:         runtime.BackupState.ExportRecovery(),
+		Quality:        runtime.Evidence.Export(ids),
+		Slate:          runtime.SlateState.ExportEmergencies(),
+		SlateMaterials: runtime.SlateState.ExportMaterials(),
+		Journal:        runtime.Journal.Records(),
 	}
 }
 
@@ -46,6 +51,12 @@ func (runtime *Runtime) RestoreCheckpoint(checkpoint ControlCheckpoint) (Recover
 	}
 	if err := runtime.Evidence.Restore(checkpoint.Quality); err != nil {
 		return RecoveryReport{}, fmt.Errorf("restore quality evidence: %w", err)
+	}
+	if err := runtime.SlateState.RestoreMaterials(checkpoint.SlateMaterials); err != nil {
+		return RecoveryReport{}, fmt.Errorf("restore slate: %w", err)
+	}
+	if err := runtime.SlateState.RestoreEmergencies(checkpoint.Slate); err != nil {
+		return RecoveryReport{}, fmt.Errorf("restore slate: %w", err)
 	}
 	sources := make(map[model.EventID]model.SourceID)
 	for _, item := range checkpoint.Sync {

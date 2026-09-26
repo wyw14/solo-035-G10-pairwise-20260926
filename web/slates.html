@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OnAirMux 紧急静态片</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header><strong>OnAirMux</strong><nav><a href="/operations.html">节目</a><a href="/equipment.html">设备</a><a href="/interlocks.html">联锁</a><a href="/incidents.html">事件</a><a href="/slates.html">应急静态片</a></nav></header>
+<main>
+<section>
+<p class="eyebrow">EMERGENCY SLATE</p>
+<h1>紧急静态片通路</h1>
+<p id="stamp">正在连接播控服务</p>
+<div class="slate-controls">
+<label>在播节目
+<select id="event-select"><option value="">加载中…</option></select>
+</label>
+<label>操作人 / 导播姓名
+<input id="operator" type="text" placeholder="切入操作人或交接导播的姓名" autocomplete="off">
+</label>
+</div>
+</section>
+
+<h2 class="panel-title">播出链路状态</h2>
+<div id="chain-panel"><p class="empty">请选择在播节目</p></div>
+
+<h2 class="panel-title">应急切换</h2>
+<div id="emergency-panel"><p class="empty">请选择在播节目</p></div>
+
+<h2 class="panel-title">受控素材库（含适用时段）</h2>
+<form id="material-form" class="slate-form">
+<label>素材名称<input name="name" required placeholder="例：信号故障通用通告静态片"></label>
+<label>素材地址<input name="content_uri" required placeholder="slate://controlled/notice.png"></label>
+<label>内容校验和<input name="checksum" required placeholder="sha256:…"></label>
+<label>录入人<input name="controlled_by" required placeholder="受控素材录入责任人"></label>
+<label>适用开始（可空）<input name="available_from" type="datetime-local"></label>
+<label>适用结束（可空）<input name="available_to" type="datetime-local"></label>
+<button type="submit" class="btn">录入受控素材</button>
+</form>
+<div id="materials" class="grid"></div>
+
+<h2 class="panel-title">应急总览</h2>
+<div id="emergencies" class="grid"></div>
+
+<h2 class="panel-title">静态片播出证据</h2>
+<div id="evidence"><p class="empty">请选择在播节目</p></div>
+</main>
+<script src="/slate.js"></script>
+</body>
+</html>

@@ -14,6 +14,7 @@ import (
 	"github.com/wyw14/solo-035/internal/mux"
 	"github.com/wyw14/solo-035/internal/playout"
 	"github.com/wyw14/solo-035/internal/quality"
+	"github.com/wyw14/solo-035/internal/slate"
 	"github.com/wyw14/solo-035/internal/source"
 	"github.com/wyw14/solo-035/internal/syncer"
 )
@@ -49,6 +50,8 @@ type Runtime struct {
 	PlayoutRecovery *playout.Recovery
 	BackupState     *backup.State
 	Backup          *backup.Coordinator
+	SlateState      *slate.State
+	Slate           *slate.Coordinator
 }
 
 func NewRuntime(dataDirectory string, clock func() time.Time) (*Runtime, error) {
@@ -99,6 +102,11 @@ func NewRuntime(dataDirectory string, clock func() time.Time) (*Runtime, error) 
 	runtime.Backup = backup.NewCoordinator(runtime.BackupState, runtime.Audio, runtime.EncoderFlow, runtime.PlayoutFlow, clock)
 	if runtime.Backup == nil {
 		return nil, fmt.Errorf("backup coordinator was not constructed")
+	}
+	runtime.SlateState = slate.NewState()
+	runtime.Slate = slate.NewCoordinator(runtime.SlateState, runtime.Journal, runtime.SourceFlow, runtime.PlayoutState, runtime.BackupState, clock)
+	if runtime.Slate == nil {
+		return nil, fmt.Errorf("slate coordinator was not constructed")
 	}
 	return runtime, nil
 }

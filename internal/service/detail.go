@@ -6,6 +6,7 @@ import (
 	"github.com/wyw14/solo-035/internal/caption"
 	"github.com/wyw14/solo-035/internal/model"
 	"github.com/wyw14/solo-035/internal/mux"
+	"github.com/wyw14/solo-035/internal/slate"
 )
 
 type SourceDetail struct {
@@ -19,6 +20,7 @@ type EventDetail struct {
 	Audio        *audio.PathState      `json:"audio,omitempty"`
 	Caption      *caption.Cue          `json:"caption,omitempty"`
 	Failover     *backup.FailoverState `json:"failover,omitempty"`
+	Slate        *slate.Emergency      `json:"slate,omitempty"`
 	PlayoutTrace []string              `json:"playout_trace"`
 	WorkerActive bool                  `json:"worker_active"`
 }
@@ -54,6 +56,9 @@ func (runtime *Runtime) Detail() OperationalDetail {
 		}
 		if failover, ok := runtime.Backup.Status(item.ID); ok {
 			eventDetail.Failover = &failover
+		}
+		if emergency, ok := runtime.SlateState.GetEmergency(item.ID); ok {
+			eventDetail.Slate = &emergency
 		}
 		detail.Events = append(detail.Events, eventDetail)
 	}

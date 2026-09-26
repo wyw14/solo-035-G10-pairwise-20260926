@@ -32,6 +32,16 @@ func (server *Server) Router() http.Handler {
 		api.Post("/control", server.control)
 		api.Get("/checkpoint", server.exportCheckpoint)
 		api.Post("/checkpoint", server.restoreCheckpoint)
+		api.Route("/slates", func(slates chi.Router) {
+			slates.Get("/materials", server.listSlateMaterials)
+			slates.Post("/materials", server.registerSlateMaterial)
+			slates.Get("/emergencies", server.listSlateEmergencies)
+			slates.Get("/status", server.slateStatus)
+			slates.Post("/propose", server.proposeSlate)
+			slates.Post("/cut-in", server.cutInSlate)
+			slates.Post("/handover", server.handoverSlate)
+			slates.Get("/evidence", server.slateEvidence)
+		})
 	})
 	router.Get("/", func(writer http.ResponseWriter, request *http.Request) {
 		http.Redirect(writer, request, "/operations.html", http.StatusTemporaryRedirect)

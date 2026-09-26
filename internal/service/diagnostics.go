@@ -3,9 +3,11 @@ package service
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/wyw14/solo-035/internal/model"
+	"github.com/wyw14/solo-035/internal/slate"
 )
 
 type DiagnosticCheck struct {
@@ -40,6 +42,7 @@ func (runtime *Runtime) Diagnostics() DiagnosticReport {
 		runtime.checkPlayout(now),
 		runtime.checkJournal(now),
 		runtime.checkInterlocks(now),
+		runtime.checkSlate(now),
 	}
 	sort.Slice(checks, func(i, j int) bool { return checks[i].Name < checks[j].Name })
 	report := DiagnosticReport{Healthy: true, Checks: checks, CheckedAt: now}
@@ -214,5 +217,82 @@ func (runtime *Runtime) checkInterlocks(now time.Time) DiagnosticCheck {
 		}
 	}
 	check.Detail = fmt.Sprintf("%d interlock observations match active event state", len(interlocks))
+	return check
+}
+
+func (runtime *Runtime) checkSlate(now time.Time) DiagnosticCheck {
+	check := DiagnosticCheck{Name: "slate-evidence", Passed: true, CheckedAt: now}
+	for _, emergency := range runtime.SlateEmergencies() {
+		if !emergency.EventID.Valid() || !emergency.Command.Valid() {
+			check.Passed = false
+			check.Detail = fmt.Sprintf("slate emergency %s has an invalid identity", emergency.EventID)
+			return check
+		}
+		switch emergency.Status {
+		case slate.StatusProposed, slate.StatusOnAir, slate.StatusHandedOver:
+		default:
+			check.Passed = false
+			check.Detail = fmt.Sprintf("slate emergency %s has unknown status %q", emergency.EventID, emergency.Status)
+			return check
+		}
+	}
+	stages := make(map[model.EventID]int)
+	evidenceCount := 0
+	for _, record := range runtime.Journal.Records() {
+		if !strings.HasPrefix(record.Kind, "slate-") {
+			continue
+		}
+		evidenceCount++
+		var payload map[string]any
+		if err := record.Decode(&payload); err != nil {
+			check.Passed = false
+			check.Detail = fmt.Sprintf("slate journal record %s cannot be decoded", record.ID)
+			return check
+		}
+		stage := stages[record.EventID]
+		switch record.Kind {
+		case slate.KindCutIn:
+			if stage != 0 && stage != 3 {
+				check.Passed = false
+				check.Detail = fmt.Sprintf("event %s received a second slate cut-in without a completed handover", record.EventID)
+				return check
+			}
+			stage = 1
+		case slate.KindHandover:
+			if stage != 1 {
+				check.Passed = false
+				check.Detail = fmt.Sprintf("event %s handed over without a preceding slate cut-in", record.EventID)
+				return check
+			}
+			stage = 2
+		case slate.KindWithdrawn:
+			if stage != 2 {
+				check.Passed = false
+				check.Detail = fmt.Sprintf("event %s withdrew its slate before the handover", record.EventID)
+				return check
+			}
+			stage = 3
+		}
+		stages[record.EventID] = stage
+	}
+	emergencies := runtime.SlateEmergencies()
+	for _, emergency := range emergencies {
+		stage := stages[emergency.EventID]
+		switch emergency.Status {
+		case slate.StatusOnAir:
+			if stage < 1 {
+				check.Passed = false
+				check.Detail = fmt.Sprintf("on-air slate for event %s has no durable cut-in evidence", emergency.EventID)
+				return check
+			}
+		case slate.StatusHandedOver:
+			if stage != 3 {
+				check.Passed = false
+				check.Detail = fmt.Sprintf("handed-over slate for event %s is missing handover or withdrawal evidence", emergency.EventID)
+				return check
+			}
+		}
+	}
+	check.Detail = fmt.Sprintf("%d slate emergencies retain %d durable cut-in/handover/withdrawal records", len(emergencies), evidenceCount)
 	return check
 }
